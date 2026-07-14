@@ -109,6 +109,15 @@ export const demos = [
 		},
 		component: () => import("../views/hauntedhouse.vue"),
 	},
+	{
+		path: "/demo/12",
+		name: "Demo12",
+		meta: {
+			title: "Demo 12: Premium Haunted House (升级版鬼屋)",
+			description: "3D haunted house with dynamic thunder, flickering lantern, floating ghosts, graveyard fog, and cinematic camera.",
+		},
+		component: () => import("../views/hauntedhousepremium.vue"),
+	},
 ];
 
 const routes = [

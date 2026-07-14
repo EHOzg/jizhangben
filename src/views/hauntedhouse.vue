@@ -7,7 +7,7 @@
             <p>
                 <strong>环境光影 (Shadows):</strong> Shadow Map
                 <span class="tag">PCSS 阴影</span>
-            </p>
+            </p>background
             <p>
                 <strong>氛围要素 (Elements):</strong>
                 迷雾、墓碑、南瓜灯与鬼屋建筑
@@ -48,7 +48,10 @@ const initThree = () => {
 
     // 1. 场景初始化
     scene = new THREE.Scene();
-    scene.background = new THREE.Color("#0c101b");
+    // scene.background = new THREE.Color("#262837");
+
+    // 添加雾气效果 (建议雾的颜色与背景色 #0c101b 保持一致，以防穿帮)
+    scene.fog = new THREE.Fog("#262837", 1, 15); // 雾的颜色 开始产生雾气的最小距离 雾气不再被计算和应用的最大距离
 
     // 2. 相机初始化
     camera = new THREE.PerspectiveCamera(
@@ -67,6 +70,8 @@ const initThree = () => {
         containerRef.value.clientHeight,
     );
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor("#262837");
+
     containerRef.value.appendChild(renderer.domElement);
 
     // 4. 轨道控制器初始化
@@ -76,12 +81,84 @@ const initThree = () => {
     // 5. 加载器初始化
     textureLoader = new THREE.TextureLoader();
 
+    const doorColorTexture = textureLoader.load(
+        "/static/textures/door/color.jpg",
+    );
+
+    const doorAlphaTexture = textureLoader.load(
+        "/static/textures/door/alpha.jpg",
+    );
+    const doorAmbientOcclusionTexture = textureLoader.load(
+        "/static/textures/door/ambientOcclusion.jpg",
+    );
+    const doorHeightTexture = textureLoader.load(
+        "/static/textures/door/height.jpg",
+    );
+    const doorMetalnessTexture = textureLoader.load(
+        "/static/textures/door/metalness.jpg",
+    );
+    const doorNormalTexture = textureLoader.load(
+        "/static/textures/door/normal.jpg",
+    );
+    const doorRoughnessTexture = textureLoader.load(
+        "/static/textures/door/roughness.jpg",
+    );
+
+    const bricksColorTexture = textureLoader.load(
+        "/static/textures/wall/castle_brick_broken_06_1k/castle_brick_broken_06_diff_1k.jpg",
+    );
+    const bricksNormalTexture = textureLoader.load(
+        "/static/textures/wall/castle_brick_broken_06_1k/castle_brick_broken_06_nor_gl_1k.jpg",
+    );
+    const bricksARMTexture = textureLoader.load(
+        "/static/textures/wall/castle_brick_broken_06_1k/castle_brick_broken_06_arm_1k.jpg",
+    );
+
+    const grassColorTexture = textureLoader.load(
+        "/static/textures/floor/coast_sand_rocks_02_1k/coast_sand_rocks_02_diff_1k.jpg",
+    );
+    const grassNormalTexture = textureLoader.load(
+        "/static/textures/floor/coast_sand_rocks_02_1k/coast_sand_rocks_02_nor_gl_1k.jpg",
+    );
+    const grassARMTexture = textureLoader.load(
+        "/static/textures/floor/coast_sand_rocks_02_1k/coast_sand_rocks_02_arm_1k.jpg",
+    );
+
+    console.log(grassColorTexture.repeat); // repeat是一个向量工具
+    //     {
+    //     "x": 1,
+    //     "y": 1
+    //      }
+
+    // grassColorTexture.repeat.set(8, 8);
+    // grassNormalTexture.repeat.set(8, 8);
+    // grassARMTexture.repeat.set(8, 8);
+
+    grassColorTexture.wrapS = THREE.RepeatWrapping;
+    grassColorTexture.wrapT = THREE.RepeatWrapping;
+    grassNormalTexture.wrapS = THREE.RepeatWrapping;
+    grassNormalTexture.wrapT = THREE.RepeatWrapping;
+    grassARMTexture.wrapS = THREE.RepeatWrapping;
+    grassARMTexture.wrapT = THREE.RepeatWrapping;
+
     // 6. 添加 3D 物体 (后续你可以在此继续练习)
     // 地面 (Floor)
     floor = new THREE.Mesh(
         new THREE.PlaneGeometry(20, 20),
-        new THREE.MeshStandardMaterial({ color: "#a9c388" }),
+        new THREE.MeshStandardMaterial({
+            map: grassColorTexture,
+            aoMap: grassARMTexture,
+            roughnessMap: grassARMTexture,
+            metalnessMap: grassARMTexture,
+            normalMap: grassNormalTexture,
+        }),
     );
+
+    floor.geometry.setAttribute(
+        "uv2",
+        new THREE.Float32BufferAttribute(floor.geometry.attributes.uv.array, 2),
+    );
+
     floor.rotation.x = -Math.PI * 0.5;
     scene.add(floor);
 
@@ -92,7 +169,18 @@ const initThree = () => {
     // 墙壁
     walls = new THREE.Mesh(
         new THREE.BoxGeometry(4, 2.5, 4), //  宽度x、高度y、深度z
-        new THREE.MeshStandardMaterial({ color: "#ac8eb2" }),
+        new THREE.MeshStandardMaterial({
+            map: bricksColorTexture, // 1. 颜色
+            normalMap: bricksNormalTexture, // 2. 法线凹凸
+            // 3. 同时使用一张 ARM 贴图控制三个物理属性
+            aoMap: bricksARMTexture,
+            roughnessMap: bricksARMTexture,
+            metalnessMap: bricksARMTexture,
+        }),
+    );
+    walls.geometry.setAttribute(
+        "uv2",
+        new THREE.Float32BufferAttribute(walls.geometry.attributes.uv.array, 2),
     );
     walls.position.y = 2.5 * 0.5;
     house.add(walls);
@@ -107,10 +195,25 @@ const initThree = () => {
     roof.rotation.y = Math.PI * 0.25;
     house.add(roof);
 
-    //  门
+    // 门
     door = new THREE.Mesh(
-        new THREE.PlaneGeometry(2, 2),
-        new THREE.MeshStandardMaterial({ color: "#aa7b7b" }),
+        new THREE.PlaneGeometry(2.2, 2.2, 100, 100),
+        new THREE.MeshStandardMaterial({
+            map: doorColorTexture, // 颜色贴图
+            transparent: true,
+            alphaMap: doorAlphaTexture, // 透明贴图
+            aoMap: doorAmbientOcclusionTexture, // 环境光遮蔽贴图
+            displacementMap: doorHeightTexture, // 凹凸贴图 Map(高度/位移贴图)
+            normalMap: doorNormalTexture, // 法线贴图
+            metalnessMap: doorMetalnessTexture, // 金属度贴图
+            roughnessMap: doorRoughnessTexture, // 粗糙度贴图
+            displacementScale: 0.1,
+            // wireframe: true,
+        }),
+    );
+    door.geometry.setAttribute(
+        "uv2",
+        new THREE.Float32BufferAttribute(door.geometry.attributes.uv.array, 2), // 顶点有两个值
     );
     door.position.y = 1;
     door.position.z = 2; // 出现z轴冲突 (两个平面在争夺谁在上面 就会这样)
@@ -159,6 +262,7 @@ const initThree = () => {
 
     for (let i = 0; i < 50; i++) {
         const angle = Math.random() * Math.PI * 2;
+
         // 圆半径需要大于的房子 但是有小于floor 不在里面 不在外面的 随机
         const radius = 3 + Math.random() * 6;
         const x = Math.sin(angle) * radius;
@@ -168,12 +272,13 @@ const initThree = () => {
         grave.position.set(x, 0.3, z);
         grave.rotation.y = (Math.random() - 0.5) * 0.8;
         grave.rotation.z = (Math.random() - 0.5) * 0.8;
+        grave.castShadow = true; // 投射阴影
         graves.add(grave);
     }
 
     // 7. 灯光初始化
     // 环境光 (Ambient Light)
-    const ambientLight = new THREE.AmbientLight("b9d5ff", 0.12);
+    const ambientLight = new THREE.AmbientLight("#b9d5ff", 0.12);
     scene.add(ambientLight);
 
     // 月光
@@ -188,6 +293,17 @@ const initThree = () => {
     // 满月夜：约 0.5 cd 普通客厅：约 50 cd 室内办公室：约 350 cd 直射阳光：约 50,000 cd
     doorLight.position.set(0, 2.2, 2.7);
     house.add(doorLight);
+
+    // ghost
+    const ghost1 = new THREE.PointLight("#ff00ff", 2, 3); //  光的颜色。 光线的强度以坎德拉为单位来衡量。光线的最大照射范围。 0 表示没有限制。
+
+    const ghost2 = new THREE.PointLight("#00ffff", 2, 3);
+
+    const ghost3 = new THREE.PointLight("#0fffff", 2, 3);
+
+    scene.add(ghost1);
+    scene.add(ghost2);
+    scene.add(ghost3);
 
     // 8. 调试面板初始化
     gui = new GUI();
@@ -207,8 +323,34 @@ const initThree = () => {
     // 9. 监听窗口大小变化
     window.addEventListener("resize", handleResize);
 
+    const clock = new THREE.Timer();
+    clock.connect(document); // 💡 建议连接 document，可在切换浏览器标签页时自动暂停时间
+
     // 10. 启动动画帧循环 (Tick)
-    const tick = () => {
+    const tick = (timestamp) => {
+        // 鬼魂旋转角度
+        clock.update(timestamp);
+        const elapsedTime = clock.getElapsed();
+        const ghost1Angle = elapsedTime * 0.5;
+        const ghost2Angle = -elapsedTime * 0.32;
+        const ghost3Angle = -elapsedTime * 0.18;
+
+        ghost1.position.x = Math.cos(ghost1Angle) * 3;
+        ghost1.position.z = Math.sin(ghost1Angle) * 3;
+        ghost1.position.y = Math.sin(elapsedTime * 3);
+
+        ghost2.position.x = Math.cos(ghost2Angle) * 5;
+        ghost2.position.z = Math.sin(ghost2Angle) * 5;
+        ghost2.position.y =
+            Math.sin(elapsedTime * 4) + Math.sin(elapsedTime * 2.5);
+
+        ghost3.position.x =
+            Math.cos(ghost1Angle) * (7 + Math.sin(elapsedTime ^ 0.32));
+        ghost3.position.z =
+            Math.sin(ghost1Angle) * (7 + Math.sin(elapsedTime ^ 0.32));
+        ghost3.position.y =
+            Math.sin(elapsedTime * 5) + Math.sin(elapsedTime * 2);
+
         // 更新控制器阻尼
         if (controls) controls.update();
 
@@ -219,6 +361,46 @@ const initThree = () => {
         animationFrameId = requestAnimationFrame(tick);
     };
     tick();
+
+    // 激活阴影
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    moonLight.castShadow = true;
+
+    walls.castShadow = true;
+    bush1.castShadow = true;
+    bush1.castShadow = true;
+    bush2.castShadow = true;
+    bush3.castShadow = true;
+    bush4.castShadow = true;
+
+    floor.receiveShadow = true;
+
+    doorLight.castShadow = true;
+    doorLight.shadow.mapSize.width = 256;
+    doorLight.shadow.mapSize.height = 256;
+    doorLight.shadow.camera.far = 7;
+
+    moonLight.shadow.mapSize.width = 256;
+    moonLight.shadow.mapSize.height = 256;
+
+    ghost1.castShadow = true;
+    ghost1.shadow.mapSize.width = 256;
+    ghost1.shadow.mapSize.height = 256;
+    ghost1.shadow.camera.far = 7;
+
+    ghost2.castShadow = true;
+    ghost2.shadow.mapSize.width = 256;
+    ghost2.shadow.mapSize.height = 256;
+    ghost2.shadow.camera.far = 7;
+
+    ghost3.castShadow = true;
+    ghost3.shadow.mapSize.width = 256;
+    ghost3.shadow.mapSize.height = 256;
+    ghost3.shadow.camera.far = 7;
+
+    // 改变阴影贴图的算法
 };
 
 /**

@@ -338,12 +338,14 @@ const initThree = () => {
     pbrFolder.open();
 
     // 10. Animation Loop
-    const clock = new THREE.Clock();
+    const clock = new THREE.Timer();
+    clock.connect(document);
 
-    const animate = () => {
+    const animate = (timestamp) => {
         animationFrameId = requestAnimationFrame(animate);
+        clock.update(timestamp);
 
-        const elapsedTime = clock.getElapsedTime();
+        const elapsedTime = clock.getElapsed();
 
         // Rotate meshes slowly
         sphere.rotation.y = elapsedTime * 0.1;

@@ -499,12 +499,14 @@ const initThree = () => {
     scene.add(axesHelper);
 
     // 11. Animation Loop
-    const clock = new THREE.Clock();
+    const clock = new THREE.Timer();
+    clock.connect(document);
 
-    const animate = () => {
+    const animate = (timestamp) => {
         animationFrameId = requestAnimationFrame(animate);
+        clock.update(timestamp);
 
-        const elapsedTime = clock.getElapsedTime();
+        const elapsedTime = clock.getElapsed();
 
         // Rotate/bounce text mesh slightly
         if (textMesh) {

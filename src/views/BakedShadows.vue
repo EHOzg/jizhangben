@@ -297,6 +297,7 @@ const initThree = () => {
         alphaMap: fakeShadowTexture,
         depthWrite: false, // Prevents artifact lines/clipping
         blending: THREE.MultiplyBlending, // Nice alpha blend blending
+        premultipliedAlpha: true,
     });
     const shadowGeo = new THREE.PlaneGeometry(1.5, 1.5);
     const ballShadow = new THREE.Mesh(shadowGeo, shadowMat);
@@ -340,11 +341,13 @@ const initThree = () => {
     updateShadowMode();
 
     // 10. Animation Loop
-    const clock = new THREE.Clock();
+    const clock = new THREE.Timer();
+    clock.connect(document);
 
-    const animate = () => {
+    const animate = (timestamp) => {
         animationFrameId = requestAnimationFrame(animate);
-        const elapsedTime = clock.getElapsedTime();
+        clock.update(timestamp);
+        const elapsedTime = clock.getElapsed();
 
         // 10.1 Rotate meshes
         if (params.enableAnimation) {
